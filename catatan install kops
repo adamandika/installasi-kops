@@ -1,0 +1,67 @@
+cara menggunakan kops  di aws dan uplod landing page menggakan load balancer
+
+# langakah pertama ikuti perintah perintah berikut ini
+
+aws s3api create-bucket --bucket adam-kops-state --region ap-southeast-1 --create-bucket-configuration LocationConstraint=ap-southeast-1
+
+aws s3api put-bucket-versioning --bucket adam-kops-state --region ap-southeast-1 --versioning-configuration Status=Enabled
+
+kOps create cluster --name cluster-dev.adam131.my.id --zones ap-southeast-2a --master-size t2.medium --node-size t2.medium --state s3://adam-kops-state
+
+kOps update cluster --name cluster-dev.adam131.my.id --yes --admin --state s3://adam-kops-state
+
+kOps validate cluster --wait 10m --state s3://adam-kops-state
+
+kubectl get nodes
+
+# lalu lakukan expose
+
+export KOPS_STATE_STORE=s3://adam-kops-state
+
+
+# CARA MEMBUAT AWSLoadBalancerControllerIAMPolicy
+
+masukkan 2 perintah berikut di terminal 
+
+> curl -o iam-policy.json https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/v2.3.0/docs/install/iam_policy.json
+> aws iam create-policy \
+    --policy-name AWSLoadBalancerControllerIAMPolicy \
+    --policy-document file://iam-policy.json
+    
+jika sudah lalu masuk ke iam dan masuk tab polices dan cari nama AWSLoadBalancerControllerIAMPolicy
+
+jika sudah ketemu lalu masuk ke dalam dan copikan arn nya contoh sebagai berikut (arn:aws:iam::046402775540:policy/AWSLoadBalancerControllerIAMPolicy) 
+
+# LALU EDIT CLUSTER NAME 
+
+> kOps edit cluster cluster-dev.adam131.my.id
+
+lalu tambahkan konfigurasi sebagai berikut di bawah spec
+
+spec:
+  externalPolicies:
+    node:
+    - ISI DENGAN ARN POLICIES YANG SUDAH DIBUAT
+
+# LALU LAKUKAN UPDATE
+
+kops update cluster --yes
+kops rolling-update cluster
+
+
+
+# LALU MASUKKAN PERINTAH BERIKUT UNTUK MENGAMBIL FULL.YAML
+
+kubectl apply --validate=false -f https://github.com/jetstack/cert-manager/releases/download/v1.5.3/cert-manager.yaml
+
+wget https://github.com/kubernetes-sigs/aws-load-balancer-controller/releases/download/v2.3.0/v2_3_0_full.yaml
+
+# EDIT FILE v2_3_0_full.yaml lalu cari bagian cluster-name dan diganti dengan nama cluster KOPS kita
+
+# PASTIKAN MEMPUNYAI FILE DEPLOYMENT.YAML DAN SERVICE.YAML DENGAN KONFIGURASI LANDING PAGE
+# JIKA SUDAH PUNYA LALU LAKUKAN PERINTAH APPLY
+
+> kubectl apply -f v2_3_0_full.yaml
+
+# lalu lakukan perintah kubectl get services untuk melihat external ip yang kita dapatkan dari loadbalancer
+jika sudah lalu copykan external ip nya lalu masuk ke browser
